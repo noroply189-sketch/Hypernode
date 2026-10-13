@@ -1,48 +1,43 @@
 # ==============================================================================
-# ALFRIANCLOUD ANDROID VPS — GATEWAY DOCKERFILE FOR RAILWAY
+# ALFRIANCLOUD ANDROID VPS — PRODUCTION DOCKERFILE FOR RAILWAY
 # ==============================================================================
-# This container runs the Node.js API Gateway, WebRTC/WebSocket streaming proxy,
-# APK management server, and responsive control dashboard on Railway.
-#
-# NOTE: Railway does not permit nested KVM (/dev/kvm) or custom binder kernel
-# modules. The Android OS instance runs on a dedicated VPS and connects to this
-# gateway over a secure WireGuard / Tailscale / SSH private network tunnel.
+# Multi-stage build designed for zero-failure Railway deployments:
+# - Stage 1 (builder): Installs dependencies, compiles Vite client + esbuild server
+# - Stage 2 (runner): Lean production Node 22 environment with android-tools-adb
 # ==============================================================================
 
 FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies
+# Install build tools if native bindings need compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
     g++ \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency manifests
-COPY package*.json ./
+# Copy package manifests and .npmrc
+COPY package*.json .npmrc* ./
 
-# Install all dependencies including devDependencies for build
-RUN npm ci
+# Install all dependencies (including devDependencies required for Vite and esbuild)
+RUN npm install --no-audit --no-fund
 
-# Copy source code and build config
+# Copy source code and config
 COPY . .
 
-# Build Vite client assets into /app/dist
+# Build client assets and compile server.ts to dist/server.js
 RUN npm run build
 
-# Compile server.ts into dist/server.js using esbuild
-RUN npx esbuild server.ts --bundle --platform=node --target=node22 --outfile=dist/server.js --external:vite --external:express --external:ws --external:multer --external:dotenv
-
 # ==============================================================================
-# Production Image
+# Stage 2: Production Runtime
 # ==============================================================================
 FROM node:22-bookworm-slim AS runner
 
 WORKDIR /app
 
-# Install android-tools-adb for local ADB communication over private tunnels
+# Install android-tools-adb for secure local/tunnel ADB bridge communication
 RUN apt-get update && apt-get install -y --no-install-recommends \
     android-tools-adb \
     ca-certificates \
@@ -53,23 +48,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy package files and install only production dependencies
-COPY package*.json ./
-RUN npm ci --omit=dev
+# Copy package manifests and .npmrc
+COPY package*.json .npmrc* ./
 
-# Copy built frontend assets and compiled server
+# Install only production dependencies using npm install (resilient with/without lockfile)
+RUN npm install --omit=dev --no-audit --no-fund
+
+# Copy compiled frontend assets and bundled backend from builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/server.ts ./server.ts
 
 # Create directory for temporary uploaded APKs
 RUN mkdir -p /tmp/alfrian-apks && chmod 777 /tmp/alfrian-apks
 
-# Expose Railway default PORT
+# Expose default port
 EXPOSE 3000
 
-# Health check against the /health endpoint
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+# Health check against /health endpoint
+HEALTHCHECK --interval=20s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
 
-# Start the ALFRIANCLOUD Gateway
+# Start the ALFRIANCLOUD production server
 CMD ["node", "dist/server.js"]

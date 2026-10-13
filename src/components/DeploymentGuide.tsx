@@ -18,10 +18,10 @@ interface DeploymentGuideProps {
 }
 
 export const DeploymentGuide: React.FC<DeploymentGuideProps> = ({ systemAudit }) => {
-  const [activeFile, setActiveFile] = useState<'setup' | 'docker' | 'railway' | 'env'>('setup');
+  const [activeFile, setActiveFile] = useState<'setup' | 'docker' | 'railway' | 'dockerfile' | 'env'>('setup');
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
 
-  const fileContents: Record<'setup' | 'docker' | 'railway' | 'env', { title: string; filename: string; content: string }> = {
+  const fileContents: Record<'setup' | 'docker' | 'railway' | 'dockerfile' | 'env', { title: string; filename: string; content: string }> = {
     setup: {
       title: 'VPS Automation Setup Script',
       filename: 'setup-android-vps.sh',
@@ -114,6 +114,33 @@ services:
   }
 }`,
     },
+    dockerfile: {
+      title: 'Production Dockerfile (Railway)',
+      filename: 'Dockerfile',
+      content: `FROM node:22-bookworm-slim AS builder
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    python3 make g++ ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY package*.json .npmrc* ./
+RUN npm install --no-audit --no-fund
+COPY . .
+RUN npm run build
+
+FROM node:22-bookworm-slim AS runner
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    android-tools-adb ca-certificates curl iproute2 && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
+ENV PORT=3000
+COPY package*.json .npmrc* ./
+RUN npm install --omit=dev --no-audit --no-fund
+COPY --from=builder /app/dist ./dist
+RUN mkdir -p /tmp/alfrian-apks && chmod 777 /tmp/alfrian-apks
+EXPOSE 3000
+HEALTHCHECK --interval=20s --timeout=5s --start-period=10s --retries=3 \\
+  CMD curl -f http://localhost:\${PORT:-3000}/health || exit 1
+CMD ["node", "dist/server.js"]`,
+    },
     env: {
       title: 'Environment Variables Blueprint',
       filename: '.env.example',
@@ -130,13 +157,13 @@ SCREEN_DEFAULT_DPI=320`,
     },
   };
 
-  const handleCopy = (key: 'setup' | 'docker' | 'railway' | 'env') => {
+  const handleCopy = (key: 'setup' | 'docker' | 'railway' | 'dockerfile' | 'env') => {
     navigator.clipboard.writeText(fileContents[key].content);
     setCopiedFile(key);
     setTimeout(() => setCopiedFile(null), 2000);
   };
 
-  const handleDownload = (key: 'setup' | 'docker' | 'railway' | 'env') => {
+  const handleDownload = (key: 'setup' | 'docker' | 'railway' | 'dockerfile' | 'env') => {
     const file = fileContents[key];
     const blob = new Blob([file.content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -205,7 +232,7 @@ SCREEN_DEFAULT_DPI=320`,
       <div className="p-5 rounded-2xl bg-[#0d1322] border border-slate-800 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
-            {(['setup', 'docker', 'railway', 'env'] as const).map((key) => (
+            {(['setup', 'docker', 'railway', 'dockerfile', 'env'] as const).map((key) => (
               <button
                 key={key}
                 onClick={() => setActiveFile(key)}

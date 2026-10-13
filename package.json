@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build",
-    "start": "node server.js",
+    "build:client": "vite build",
+    "build:server": "esbuild server.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/server.js --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --external:vite --external:express --external:ws --external:multer --external:dotenv",
+    "build": "vite build && npm run build:server",
+    "start": "node dist/server.js",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
@@ -33,7 +35,7 @@
     "@types/react-dom": "^19.3.0",
     "@types/ws": "^8.18.2",
     "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2"
