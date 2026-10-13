@@ -1,0 +1,44 @@
+version: '3.8'
+
+# ==============================================================================
+# ALFRIANCLOUD ANDROID VPS — DOCKER COMPOSE CONFIGURATION (LINUX VPS RUNNER)
+# ==============================================================================
+# Run on your Linux VPS (Ubuntu 22.04 / 24.04 with kernel binder modules enabled)
+# Command: docker compose -f docker-compose.vps.yml up -d
+# ==============================================================================
+
+services:
+  android:
+    image: redroid/redroid:13.0.0-latest
+    container_name: alfrian-redroid
+    restart: always
+    privileged: true
+    volumes:
+      # Persistent Android userdata (Apps, settings, storage)
+      - ./data:/data
+      # Binder IPC modules from the host Linux kernel
+      - /dev/binder:/dev/binder
+      - /dev/hwbinder:/dev/hwbinder
+      - /dev/vndbinder:/dev/vndbinder
+    ports:
+      # Bound strictly to 127.0.0.1 or WireGuard private IP (NEVER 0.0.0.0)
+      - "127.0.0.1:5555:5555"
+    command:
+      - "androidboot.redroid_width=720"
+      - "androidboot.redroid_height=1280"
+      - "androidboot.redroid_dpi=320"
+      - "androidboot.redroid_fps=30"
+      - "androidboot.redroid_gpu_mode=guest" # Use 'guest' for CPU rendering or 'host' with mesa
+    healthcheck:
+      test: ["CMD-SHELL", "cat /proc/uptime || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Optional lightweight secure reverse proxy / SSH tunnel container
+  tunnel:
+    image: alpine:latest
+    container_name: alfrian-tunnel-helper
+    restart: unless-stopped
+    command: ["sleep", "infinity"]

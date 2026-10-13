@@ -1,0 +1,6 @@
+{
+  "name": "ALFRIANCLOUD ANDROID VPS — RAILWAY",
+  "description": "Cloud Android VPS management dashboard, real-time remote control gateway, APK installer, and Railway deployment architecture.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
