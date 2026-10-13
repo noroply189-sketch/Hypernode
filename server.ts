@@ -324,6 +324,8 @@ app.get('/api/deployment/scripts/:name', (req: Request, res: Response) => {
     'railway.json': path.resolve(process.cwd(), 'railway.json'),
     'Dockerfile': path.resolve(process.cwd(), 'Dockerfile'),
     'env.example': path.resolve(process.cwd(), '.env.example'),
+    'README.md': path.resolve(process.cwd(), 'README.md'),
+    '.gitignore': path.resolve(process.cwd(), '.gitignore'),
   };
 
   const filePath = allowedFiles[name];
