@@ -117,24 +117,17 @@ services:
     dockerfile: {
       title: 'Production Dockerfile (Railway)',
       filename: 'Dockerfile',
-      content: `FROM node:22-bookworm-slim AS builder
+      content: `FROM node:22-bookworm-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \\
-    python3 make g++ ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY package*.json .npmrc* ./
-RUN npm install --no-audit --no-fund
-COPY . .
-RUN npm run build
-
-FROM node:22-bookworm-slim AS runner
-WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends \\
-    android-tools-adb ca-certificates curl iproute2 && rm -rf /var/lib/apt/lists/*
+    android-tools-adb ca-certificates curl iproute2 python3 make g++ \\
+    && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 ENV PORT=3000
 COPY package*.json .npmrc* ./
-RUN npm install --omit=dev --no-audit --no-fund
-COPY --from=builder /app/dist ./dist
+RUN npm install --legacy-peer-deps --no-audit --no-fund
+COPY . .
+RUN npm run build
 RUN mkdir -p /tmp/alfrian-apks && chmod 777 /tmp/alfrian-apks
 EXPOSE 3000
 HEALTHCHECK --interval=20s --timeout=5s --start-period=10s --retries=3 \\
